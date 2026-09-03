@@ -3,7 +3,7 @@ import {createReadStream,existsSync,statSync} from "node:fs";
 import {extname,join,normalize,resolve} from "node:path";
 import {randomBytes,randomUUID} from "node:crypto";
 import {fileURLToPath} from "node:url";
-import {buildQuestionSet,onlineModes,publicQuestion} from "./src/gameData.js";
+import {buildQuestionSet,onlineModes,publicQuestion,shuffle,signs} from "./src/gameData.js";
 import {betOptions,phaseForRound,phaseInfo,resolveTileBattle,shuffledTiles,speedPoints,tileCategories} from "./src/competitiveData.js";
 import {APP_VERSION} from "./src/version.js";
 
@@ -24,6 +24,12 @@ function tileSnapshot(room,viewerId){
  return{phase:game.phase,category:categoryVisible?game.category:null,categoryLocked:game.phase!=="category",battle:game.battle,activePlayerId:activeId,defenderId,myCount:myDeck.length,opponentCount:opponentDeck.length,myTop:myDeck.slice(0,2),opponentChoices:opponentDeck.slice(0,2).map(publicTile),attackerCard:game.decks[activeId]?.[0]||null,lastBattle:game.lastBattle};
 }
 
+function guessWhoSnapshot(room,viewerId){
+ const game=room.guessWho;if(!game)return null;
+ const opponentId=room.players.find(player=>player.id!==viewerId)?.id,toPublic=name=>{const sign=signs.find(item=>item.name===name);return sign?{name:sign.name,symbol:sign.symbol}:null};
+ return{matchId:game.matchId,turnPlayerId:game.turnPlayerId,winnerId:game.winnerId,lastAccusation:game.lastAccusation,mySecret:toPublic(game.secrets[viewerId]),opponentSecret:room.status==="finished"?toPublic(game.secrets[opponentId]):null};
+}
+
 function questionSnapshot(room,question,revealed){
  const visible=publicQuestion(question,revealed);if(!visible||revealed||question.phase!=="slow"||room.status!=="playing")return visible;
  const words=visible.prompt.split(/\s+/),elapsed=Math.max(0,Date.now()-room.roundStartedAt),count=Math.max(1,Math.min(words.length,Math.floor(elapsed/PROGRESSIVE_REVEAL_MS*words.length)+1));
@@ -32,7 +38,7 @@ function questionSnapshot(room,question,revealed){
 
 function snapshot(room,viewerId){
  const q=room.questions[room.round],revealed=room.status==="reveal"||room.status==="finished",showQuestion=!["lobby","betting"].includes(room.status)&&room.settings.mode!=="tiles";
- return{version:APP_VERSION,code:room.code,status:room.status,hostId:room.hostId,settings:room.settings,round:Math.min(room.round+1,room.settings.rounds||1),roundEndsAt:room.status==="playing"?room.roundStartedAt+ROUND_MS:room.status==="betting"?room.betStartedAt+BET_MS:null,phase:q?.phase||null,phaseInfo:q?.phase?phaseInfo[q.phase]:null,phaseNumber:q?.phase?Math.floor(room.round/4)+1:null,players:room.players.map(({token,...player})=>player),question:showQuestion?questionSnapshot(room,q,revealed):null,answeredPlayerIds:Object.keys(room.answers||{}),betPlayerIds:Object.keys(room.bets||{}),myBet:room.bets?.[viewerId]||null,answers:room.status==="reveal"?Object.fromEntries(Object.entries(room.answers).map(([id,a])=>[id,{choice:a.choice,correct:a.correct,points:a.points||0,timedOut:!!a.timedOut}])):{},roundOutcome:revealed?room.roundOutcome:null,tile:tileSnapshot(room,viewerId),expiresAt:room.expiresAt};
+ return{version:APP_VERSION,code:room.code,status:room.status,hostId:room.hostId,settings:room.settings,round:Math.min(room.round+1,room.settings.rounds||1),roundEndsAt:room.status==="playing"?room.roundStartedAt+ROUND_MS:room.status==="betting"?room.betStartedAt+BET_MS:null,phase:q?.phase||null,phaseInfo:q?.phase?phaseInfo[q.phase]:null,phaseNumber:q?.phase?Math.floor(room.round/4)+1:null,players:room.players.map(({token,...player})=>player),question:showQuestion?questionSnapshot(room,q,revealed):null,answeredPlayerIds:Object.keys(room.answers||{}),betPlayerIds:Object.keys(room.bets||{}),myBet:room.bets?.[viewerId]||null,answers:room.status==="reveal"?Object.fromEntries(Object.entries(room.answers).map(([id,a])=>[id,{choice:a.choice,correct:a.correct,points:a.points||0,timedOut:!!a.timedOut}])):{},roundOutcome:revealed?room.roundOutcome:null,tile:tileSnapshot(room,viewerId),guessWho:guessWhoSnapshot(room,viewerId),expiresAt:room.expiresAt};
 }
 function broadcast(room){for(const [id,stream] of room.streams){try{stream.write(`data: ${JSON.stringify(snapshot(room,id))}\n\n`)}catch{}}}
 function touch(room){room.expiresAt=Date.now()+ROOM_TTL}
@@ -90,7 +96,10 @@ function newQuestionMatch(room){
 function newTileMatch(room){
  clearTimers(room);const deck=shuffledTiles(),first=room.players[0].id,second=room.players[1].id;room.questions=[];room.round=0;room.settings.rounds=0;room.answers={};room.bets={};room.tile={decks:{[first]:deck.slice(0,6),[second]:deck.slice(6)},activePlayerId:Math.random()>.5?first:second,phase:"category",category:null,lastBattle:null,battle:1};room.players.forEach(player=>player.score=6);room.status="tile-playing";touch(room);broadcast(room);
 }
-function newMatch(room){clearTimers(room);if(room.settings.mode==="tiles")newTileMatch(room);else newQuestionMatch(room)}
+function newGuessWhoMatch(room){
+ clearTimers(room);const deck=shuffle(signs),first=room.players[0].id,second=room.players[1].id;room.questions=[];room.round=0;room.settings.rounds=1;room.answers={};room.bets={};room.tile=null;room.guessWho={matchId:randomUUID(),secrets:{[first]:deck[0].name,[second]:deck[1].name},turnPlayerId:Math.random()>.5?first:second,winnerId:null,lastAccusation:null};room.players.forEach(player=>player.score=0);room.status="guesswho-playing";touch(room);broadcast(room);
+}
+function newMatch(room){clearTimers(room);room.guessWho=null;if(room.settings.mode==="tiles")newTileMatch(room);else if(room.settings.mode==="guesswho-online")newGuessWhoMatch(room);else newQuestionMatch(room)}
 
 function resolveOnlineTile(room,defenseIndex){
  const game=room.tile,attackerId=game.activePlayerId,defenderId=room.players.find(player=>player.id!==attackerId).id,attackerDeck=[...game.decks[attackerId]],defenderDeck=[...game.decks[defenderId]],attacker=attackerDeck.shift(),defender=defenderDeck.splice(defenseIndex,1)[0],result=resolveTileBattle(attacker,defender,game.category);let nextActive,winnerId=null;
@@ -102,15 +111,15 @@ function resolveOnlineTile(room,defenseIndex){
 }
 
 function createRoom(name,settings={}){
- const roomCode=code(),player={id:randomUUID(),token:randomUUID(),name,score:0,connected:true},mode=onlineModes.includes(settings.mode)?settings.mode:"championship",rounds=mode==="championship"?16:mode==="tiles"?0:[5,10,15].includes(Number(settings.rounds))?Number(settings.rounds):10;
- const room={code:roomCode,hostId:player.id,players:[player],streams:new Map(),status:"lobby",settings:{mode,rounds},questions:[],round:0,answers:{},bets:{},tile:null,roundOutcome:null,expiresAt:Date.now()+ROOM_TTL};rooms.set(roomCode,room);return{room,player};
+ const roomCode=code(),player={id:randomUUID(),token:randomUUID(),name,score:0,connected:true},mode=onlineModes.includes(settings.mode)?settings.mode:"championship",rounds=mode==="championship"?16:mode==="tiles"?0:mode==="guesswho-online"?1:[5,10,15].includes(Number(settings.rounds))?Number(settings.rounds):10;
+ const room={code:roomCode,hostId:player.id,players:[player],streams:new Map(),status:"lobby",settings:{mode,rounds},questions:[],round:0,answers:{},bets:{},tile:null,guessWho:null,roundOutcome:null,expiresAt:Date.now()+ROOM_TTL};rooms.set(roomCode,room);return{room,player};
 }
 function session(room,player){return{code:room.code,playerId:player.id,token:player.token,state:snapshot(room,player.id)}}
 
 const server=http.createServer(async(req,res)=>{
  const url=new URL(req.url,`http://${req.headers.host||"localhost"}`),parts=url.pathname.split("/").filter(Boolean);
  try{
-  if(url.pathname==="/api/health")return json(res,200,{ok:true,version:APP_VERSION,rooms:rooms.size,roundSeconds:ROUND_MS/1000,progressiveRevealSeconds:PROGRESSIVE_REVEAL_MS/1000,features:["tessere-categoria-segreta","domande-60-secondi","audio-celeste","costellazioni-rotazione-360"]});
+  if(url.pathname==="/api/health")return json(res,200,{ok:true,version:APP_VERSION,rooms:rooms.size,roundSeconds:ROUND_MS/1000,progressiveRevealSeconds:PROGRESSIVE_REVEAL_MS/1000,features:["guesswho-online-vocale","profilo-264-scene","tessere-valori-ricalibrati","stanza-online-conservata","domande-60-secondi","audio-celeste","costellazioni-rotazione-360"]});
   if(req.method==="POST"&&url.pathname==="/api/rooms"){const data=await body(req),name=cleanName(data.name);if(name.length<2)return json(res,400,{error:"Inserisci un nome di almeno 2 caratteri."});const{room,player}=createRoom(name,data);return json(res,201,session(room,player))}
   if(req.method==="POST"&&parts[0]==="api"&&parts[1]==="rooms"&&parts[3]==="join"){
    const room=rooms.get(parts[2]?.toUpperCase()),data=await body(req),name=cleanName(data.name);if(!room)return json(res,404,{error:"Stanza non trovata."});if(room.status!=="lobby")return json(res,409,{error:"La partita è già iniziata."});if(room.players.length>=2)return json(res,409,{error:"La stanza è già piena."});if(name.length<2)return json(res,400,{error:"Inserisci un nome di almeno 2 caratteri."});
@@ -126,6 +135,14 @@ const server=http.createServer(async(req,res)=>{
    if(action==="start"){if(player.id!==room.hostId)return json(res,403,{error:"Solo chi ha creato la stanza può iniziare."});if(room.players.length!==2)return json(res,409,{error:"Servono due giocatori."});newMatch(room);return json(res,200,{ok:true})}
    if(action==="answer"){const result=answerQuestion(room,player,data.choice);return json(res,result.status,result.data||{error:result.error})}
    if(action==="bet"){if(room.status!=="betting")return json(res,409,{error:"Le scommesse non sono aperte."});if(room.bets[player.id])return json(res,409,{error:"Hai già scommesso."});if(!betOptions.includes(Number(data.amount)))return json(res,400,{error:"Scommessa non valida."});room.bets[player.id]=Number(data.amount);if(Object.keys(room.bets).length===room.players.length){clearTimeout(room.roundTimer);beginQuestion(room)}else broadcast(room);return json(res,200,{ok:true})}
+   if(action==="guesswho-pass"){
+    const game=room.guessWho;if(room.status!=="guesswho-playing"||!game||game.turnPlayerId!==player.id)return json(res,409,{error:"Non puoi passare il turno ora."});
+    game.turnPlayerId=room.players.find(item=>item.id!==player.id).id;game.lastAccusation=null;touch(room);broadcast(room);return json(res,200,{ok:true});
+   }
+   if(action==="guesswho-accuse"){
+    const game=room.guessWho,sign=String(data.sign||""),opponent=room.players.find(item=>item.id!==player.id);if(room.status!=="guesswho-playing"||!game||game.turnPlayerId!==player.id)return json(res,409,{error:"Non puoi accusare ora."});if(!signs.some(item=>item.name===sign))return json(res,400,{error:"Segno non valido."});
+    const correct=game.secrets[opponent.id]===sign;game.lastAccusation={playerId:player.id,sign,correct};if(correct){game.winnerId=player.id;player.score=1;room.status="finished"}else game.turnPlayerId=opponent.id;touch(room);broadcast(room);return json(res,200,{ok:true,correct});
+   }
    if(action==="tile-category"){const game=room.tile;if(room.status!=="tile-playing"||game?.phase!=="category"||game.activePlayerId!==player.id)return json(res,409,{error:"Non puoi scegliere la categoria ora."});if(!tileCategories.some(category=>category.id===data.category))return json(res,400,{error:"Categoria non valida."});game.category=data.category;game.phase="defense";broadcast(room);return json(res,200,{ok:true})}
    if(action==="tile-defense"){const game=room.tile,defenderId=room.players.find(item=>item.id!==game?.activePlayerId)?.id,index=Number(data.index);if(room.status!=="tile-playing"||game?.phase!=="defense"||defenderId!==player.id)return json(res,409,{error:"Non puoi scegliere la tessera ora."});if(!Number.isInteger(index)||index<0||index>=Math.min(2,game.decks[player.id].length))return json(res,400,{error:"Tessera non valida."});resolveOnlineTile(room,index);return json(res,200,{ok:true})}
    if(action==="rematch"){if(player.id!==room.hostId)return json(res,403,{error:"Solo chi ha creato la stanza può avviare la rivincita."});if(room.status!=="finished")return json(res,409,{error:"La partita non è ancora finita."});newMatch(room);return json(res,200,{ok:true})}

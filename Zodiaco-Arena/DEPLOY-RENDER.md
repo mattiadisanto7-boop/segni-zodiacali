@@ -1,4 +1,4 @@
-# Pubblicare Zodiaco Arena 6.1 su GitHub e Render
+# Pubblicare Zodiaco Arena 6.2 su GitHub e Render
 
 ## 1. Controlla la radice del repository
 
@@ -43,10 +43,10 @@ https://IL-TUO-SERVIZIO.onrender.com/api/health
 La risposta della versione corretta contiene:
 
 ```json
-{"ok":true,"version":"6.1.0","roundSeconds":60,"progressiveRevealSeconds":30}
+{"ok":true,"version":"6.2.0","roundSeconds":60,"progressiveRevealSeconds":30}
 ```
 
-Inoltre, nella barra superiore del gioco deve comparire `v6.1.0`. Se uno dei due controlli mostra altro, Render sta ancora distribuendo un vecchio commit o una vecchia cache.
+Inoltre, nella barra superiore del gioco deve comparire `v6.2.0`. Se uno dei due controlli mostra altro, Render sta ancora distribuendo un vecchio commit o una vecchia cache.
 
 ## 5. Controlli locali facoltativi
 

@@ -28,8 +28,8 @@ test.after(()=>{processHandle?.kill("SIGTERM")});
 
 test("l’health check identifica senza ambiguità la versione distribuita",async()=>{
  const response=await fetch(`${base}/api/health`),health=await response.json();
- assert.equal(response.status,200);assert.equal(health.ok,true);assert.equal(health.version,"6.1.0");assert.equal(health.roundSeconds,.9);assert.equal(health.progressiveRevealSeconds,.25);
- assert.deepEqual(health.features,["tessere-categoria-segreta","domande-60-secondi","audio-celeste","costellazioni-rotazione-360"]);
+ assert.equal(response.status,200);assert.equal(health.ok,true);assert.equal(health.version,"6.2.0");assert.equal(health.roundSeconds,.9);assert.equal(health.progressiveRevealSeconds,.25);
+ assert.deepEqual(health.features,["guesswho-online-vocale","profilo-264-scene","tessere-valori-ricalibrati","stanza-online-conservata","domande-60-secondi","audio-celeste","costellazioni-rotazione-360"]);
 });
 
 test("il protocollo online attraversa le quattro fasi senza rivelare le risposte",async()=>{
@@ -91,4 +91,19 @@ test("il server mostra la carta d’attacco ma sigilla la categoria al difensore
  const reveal=await until(active,value=>value.tile?.phase==="reveal","rivelazione tessere");
  assert.equal(reveal.tile.category,category);assert.ok(reveal.tile.lastBattle.attacker.values);assert.ok(reveal.tile.lastBattle.defender.values);assert.ok(["attacker","defender","tie"].includes(reveal.tile.lastBattle.result.winner));
  assert.equal(reveal.players.reduce((sum,player)=>sum+player.score,0),12);
+});
+
+test("Indovina Chi online assegna segreti privati, alterna i turni e riusa la stanza",async()=>{
+ const host=await request("/api/rooms",{name:"Selene",mode:"guesswho-online"}),guest=await request(`/api/rooms/${host.code}/join`,{name:"Atlas"});
+ await request(`/api/rooms/${host.code}/start`,credentials(host));
+ const hostView=await until(host,value=>value.status==="guesswho-playing"&&value.guessWho?.mySecret,"identità host"),guestView=await until(guest,value=>value.status==="guesswho-playing"&&value.guessWho?.mySecret,"identità guest");
+ assert.equal(hostView.question,null);assert.equal(guestView.question,null);assert.equal(hostView.guessWho.opponentSecret,null);assert.equal(guestView.guessWho.opponentSecret,null);assert.notEqual(hostView.guessWho.mySecret.name,guestView.guessWho.mySecret.name);
+ const matchId=hostView.guessWho.matchId,active=hostView.guessWho.turnPlayerId===host.playerId?host:guest,defender=active===host?guest:host,opponentSecret=active===host?guestView.guessWho.mySecret.name:hostView.guessWho.mySecret.name,wrong=["Ariete","Toro","Gemelli"].find(name=>name!==opponentSecret);
+ const failed=await request(`/api/rooms/${host.code}/guesswho-accuse`,credentials(active,{sign:wrong}));assert.equal(failed.correct,false);
+ const switched=await until(defender,value=>value.guessWho?.turnPlayerId===defender.playerId&&value.guessWho?.lastAccusation?.correct===false,"turno dopo accusa errata");assert.equal(switched.guessWho.lastAccusation.sign,wrong);
+ const correctSecret=defender===host?guestView.guessWho.mySecret.name:hostView.guessWho.mySecret.name,won=await request(`/api/rooms/${host.code}/guesswho-accuse`,credentials(defender,{sign:correctSecret}));assert.equal(won.correct,true);
+ const finish=await until(host,value=>value.status==="finished"&&value.guessWho?.winnerId===defender.playerId,"vittoria Indovina Chi");assert.equal(finish.guessWho.opponentSecret.name,guestView.guessWho.mySecret.name);assert.equal(finish.players.length,2);
+ await request(`/api/rooms/${host.code}/rematch`,credentials(host));
+ const rematch=await until(host,value=>value.status==="guesswho-playing"&&value.guessWho?.matchId!==matchId,"rivincita nella stessa stanza");assert.equal(rematch.code,host.code);assert.deepEqual(rematch.players.map(player=>player.id).sort(),[host.playerId,guest.playerId].sort());assert.equal(rematch.question,null);
+ const passing=rematch.guessWho.turnPlayerId===host.playerId?host:guest,receiving=passing===host?guest:host;await request(`/api/rooms/${host.code}/guesswho-pass`,credentials(passing));await until(receiving,value=>value.guessWho?.turnPlayerId===receiving.playerId,"passaggio volontario del turno");
 });

@@ -1,16 +1,16 @@
-# Zodiaco Arena 6.1
+# Zodiaco Arena 6.2
 
 Quiz zodiacale in italiano con modalità singolo e sfide online private per due giocatori.
 
 ## Funzioni
 
 - 11 modalità in singolo di livello avanzato:
-  - **Indovina Chi: interrogatorio**: scegli vere domande sì/no e gestisci manualmente ogni sospetto. Il gioco non elimina mai un segno al posto tuo; puoi capovolgere e riaprire liberamente le tessere.
-  - **Profilo Vivente**: ricostruisci il segno osservando una persona in scene concrete di vita quotidiana, relazioni, pressione e motivazioni profonde. Contiene 144 scene originali combinabili in 972 profili.
+  - **Indovina Chi: interrogatorio**: scegli da una banca di 72 vere domande sì/no, espandibile durante la partita, e gestisci manualmente ogni sospetto. Il gioco non elimina mai un segno al posto tuo; puoi capovolgere e riaprire liberamente le tessere.
+  - **Profilo Vivente**: ricostruisci il segno osservando una persona in scene concrete di lavoro, denaro, viaggi, amicizie, apprendimento, scelte, creatività, cambiamento e pressione. Contiene 264 scene, 22 per ogni segno, e seleziona quattro contesti diversi a ogni fascicolo.
   - **Rivelazione**: indizi relazionali in ordine variabile; ogni errore sblocca il successivo e riduce i punti. Non usa il numero della casa.
   - **Osservatorio J2000**: coordinate, luminosità e campo stellare reali; l'ottica usa una rotazione casuale completa da 0° a 359°, può specchiare la figura e distingue chiaramente le stelle principali dal campo.
   - **Codice Astrale**: un Mastermind zodiacale con 11.880 codici ordinati possibili, feedback su segni esatti e fuori posizione.
-  - **Duello delle Tessere contro la CPU**: dodici carte e cinque categorie. La carta dell'attaccante è pubblica ma la categoria è segreta; il difensore deve dedurla prima di scegliere una delle proprie due tessere.
+  - **Duello delle Tessere contro la CPU**: dodici carte e cinque categorie calibrate su elemento, modalità e tratti comportamentali. La carta dell'attaccante è pubblica ma la categoria è segreta; il difensore deve dedurla prima di scegliere una delle proprie due tessere.
   - **Dossier astrale**: completa sei variabili, incluse le proprietà dei segni precedente e successivo.
   - **Archivio vero/falso**: seleziona tutte le affermazioni vere senza sapere quante siano; il numero cambia a ogni turno.
   - **Deduzione astrale**: risolvi indizi che incrociano polarità, modalità, elementi, governatori, assi opposti e segni vicini.
@@ -22,10 +22,11 @@ Quiz zodiacale in italiano con modalità singolo e sfide online private per due 
   - **Scommessa**: prima di vedere la domanda entrambi rischiano 50, 100, 200 o 350 punti; una risposta sbagliata sottrae la puntata.
   - **Domanda progressiva**: il testo appare parola per parola nei primi 30 secondi, poi rimane completo e rispondibile fino alla scadenza dei 60 secondi; la prima risposta corretta chiude la manche.
   - **Ruba i punti**: la prima risposta corretta trasferisce punti dall'avversario; il bottino diminuisce con il tempo.
+- **Indovina Chi online vocale**: il server assegna a ciascuno un'identità segreta diversa e sincronizza turni, accuse e vittoria. Le domande non appaiono nell'app: i giocatori le fanno a voce e ognuno aggiorna manualmente il proprio tabellone POSSIBILE/ESCLUSO.
 - **Duello delle Tessere online**: tutti vedono la carta dell'attaccante con i suoi cinque valori, ma soltanto l'attaccante conosce la categoria sigillata. Il difensore vede integralmente le proprie due tessere, deduce la scelta e ne schiera una. Categoria e confronto vengono rivelati insieme; chi vince raccoglie entrambe le carte.
 - Restano disponibili anche quiz online classici da 5, 10 o 15 domande.
 - Tutte le domande online hanno 60 secondi sincronizzati lato server. Nella fase progressiva il browser riceve soltanto le parole già sbloccate; nelle scommesse chi non risponde entro il tempo perde comunque i punti puntati.
-- Classifica finale, rivincita e riconnessione automatica.
+- Classifica finale, rivincita e riconnessione automatica. Tornare alla home non abbandona la stanza: entrambi i giocatori restano collegati e possono rientrare o avviare la rivincita nello stesso codice.
 - Record personali salvati nel browser.
 - Design responsive per smartphone, tablet e computer.
 - Manifest PWA per aggiungere il gioco alla schermata Home.
@@ -100,7 +101,7 @@ Se hai già creato un normale **Web Service**, non serve ricrearlo. Imposta:
 
 La guida operativa completa, compreso il controllo contro vecchie build in cache, è in [`DEPLOY-RENDER.md`](DEPLOY-RENDER.md).
 
-Per verificare senza dubbi cosa sta servendo Render apri `https://IL-TUO-SERVIZIO.onrender.com/api/health`: la release corrente restituisce `"version":"6.1.0"`. La stessa versione compare nella barra superiore del gioco.
+Per verificare senza dubbi cosa sta servendo Render apri `https://IL-TUO-SERVIZIO.onrender.com/api/health`: la release corrente restituisce `"version":"6.2.0"`. La stessa versione compare nella barra superiore del gioco.
 
 ## Dati astronomici
 
@@ -113,8 +114,8 @@ Le stanze rimangono in memoria per 30 minuti e sono pensate per partite private 
 ## Struttura
 
 - `src/App.jsx`: interfaccia e logica del gioco.
-- `src/advancedGames.jsx`: Profilo Vivente e duelli di tessere contro CPU/online.
-- `src/personalityData.js`: banca delle 144 scene comportamentali.
+- `src/advancedGames.jsx`: Profilo Vivente, Indovina Chi vocale e duelli di tessere contro CPU/online.
+- `src/personalityData.js` e `src/personalityExpansion.js`: banca delle 264 scene comportamentali.
 - `src/competitiveData.js`: fasi del campionato, punteggi e valori delle tessere.
 - `src/gameData.js`: segni, modalità e generazione delle domande.
 - `server.mjs`: server HTTP, stanze e sincronizzazione in tempo reale tramite SSE.

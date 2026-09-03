@@ -3,12 +3,13 @@ import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
 import {buildQuestionSet,detectiveQuestions,expertStatements,makeQuestion,onlineModes,progressiveClues,publicQuestion,scoreCipher,signs} from "../src/gameData.js";
 import {betOptions,championshipPhases,phaseForRound,resolveTileBattle,shuffledTiles,speedPoints,tileCategories,zodiacTiles} from "../src/competitiveData.js";
-import {buildPortrait,portraitStageNames,portraitVariantCount} from "../src/personalityData.js";
+import {buildPortrait,portraitCountForSign,portraitStageNames,portraitVariantCount} from "../src/personalityData.js";
+import {extraPortraitScenes} from "../src/personalityExpansion.js";
 import {APP_VERSION} from "../src/version.js";
 
 const identity=q=>`${q.mode}:${q.prompt}:${q.answer}:${q.view?.rotation??""}:${q.view?.mirror??""}:${q.view?.density??""}`;
 
-for(const mode of onlineModes.filter(mode=>mode!=="tiles")){
+for(const mode of onlineModes.filter(mode=>!["tiles","guesswho-online"].includes(mode))){
  test(`${mode}: genera una prova difficile ma risolvibile`,()=>{
   const q=makeQuestion(mode,()=>0.42);assert.ok(q.prompt.length>15);assert.ok(q.options.includes(q.answer));assert.ok(q.options.length>=8);assert.ok(q.explanation.length>5);
  });
@@ -26,7 +27,7 @@ test("l’archivio varia il numero delle verità",()=>{
 });
 
 test("Indovina Chi offre un vero catalogo di domande sì/no",()=>{
- const bank=detectiveQuestions();assert.ok(bank.length>=30);assert.equal(new Set(bank.map(q=>q.id)).size,bank.length);
+ const bank=detectiveQuestions();assert.ok(bank.length>=70);assert.equal(new Set(bank.map(q=>q.id)).size,bank.length);
  for(const q of bank)for(const sign of signs)assert.equal(typeof q.test(sign),"boolean");
 });
 
@@ -55,10 +56,10 @@ test("Maestro dello Zodiaco non usa mai il simbolo della soluzione come decorazi
  for(let i=0;i<100;i++){const q=makeQuestion("mixed");assert.equal(signs.some(sign=>sign.symbol===q.symbol),false)}
 });
 
-test("Profilo Vivente dispone di 144 scene concrete e quattro contesti per segno",()=>{
- assert.equal(portraitVariantCount(),144);
+test("Profilo Vivente dispone di 264 scene concrete e 22 situazioni per segno",()=>{
+ assert.equal(portraitVariantCount(),264);
  assert.deepEqual(portraitStageNames,["Vita quotidiana","Legami","Sotto pressione","Firma profonda"]);
- for(const sign of signs){const profile=buildPortrait(sign.name,()=>0);assert.equal(profile.length,4);assert.equal(new Set(profile.map(scene=>scene.stage)).size,4);for(const scene of profile)assert.ok(scene.text.length>90)}
+ for(const sign of signs){assert.equal(portraitCountForSign(sign.name),22);assert.equal(extraPortraitScenes[sign.name].length,10);assert.equal(new Set(extraPortraitScenes[sign.name].map(scene=>scene[0])).size,10);for(const[,text]of extraPortraitScenes[sign.name])assert.ok(text.length>90);const profile=buildPortrait(sign.name,()=>0);assert.equal(profile.length,4);assert.equal(new Set(profile.map(scene=>scene.stage)).size,4);for(const scene of profile)assert.ok(scene.text.length>90)}
 });
 
 test("il Campionato ha quattro blocchi completi e punteggi davvero sensibili al tempo",()=>{
@@ -70,18 +71,32 @@ test("il Campionato ha quattro blocchi completi e punteggi davvero sensibili al 
 
 test("le dodici tessere condividono cinque categorie e valori validi",()=>{
  assert.equal(zodiacTiles.length,12);assert.equal(new Set(zodiacTiles.map(tile=>tile.name)).size,12);assert.equal(tileCategories.length,5);
- for(const tile of zodiacTiles){assert.deepEqual(Object.keys(tile.values),tileCategories.map(category=>category.id));for(const value of Object.values(tile.values))assert.ok(Number.isInteger(value)&&value>=1&&value<=100)}
+ const expected={Ariete:[98,62,48,79,55],Toro:[40,98,70,61,27],Gemelli:[80,42,67,87,97],Cancro:[47,78,95,71,53],Leone:[92,82,58,98,45],Vergine:[51,90,82,49,85],Bilancia:[57,56,77,94,84],Scorpione:[68,96,98,73,39],Sagittario:[97,50,63,83,93],Capricorno:[60,99,69,81,59],Acquario:[72,72,84,85,99],Pesci:[38,52,99,68,95]};
+ for(const tile of zodiacTiles){assert.deepEqual(Object.keys(tile.values),tileCategories.map(category=>category.id));assert.deepEqual(Object.values(tile.values),expected[tile.name]);assert.ok(tile.signature.length>80);for(const value of Object.values(tile.values))assert.ok(Number.isInteger(value)&&value>=1&&value<=100)}
+ for(const one of zodiacTiles)for(const other of zodiacTiles)if(one!==other)assert.equal(tileCategories.every(category=>one.values[category.id]>=other.values[category.id])&&tileCategories.some(category=>one.values[category.id]>other.values[category.id]),false,`${one.name} non deve dominare ${other.name} in tutto`);
  const deck=shuffledTiles(()=>0.42);assert.equal(deck.length,12);assert.notEqual(deck[0],zodiacTiles[0]);
- const result=resolveTileBattle(zodiacTiles[0],zodiacTiles[1],"slancio");assert.deepEqual(result,{attack:94,defense:45,winner:"attacker"});
+ const result=resolveTileBattle(zodiacTiles[0],zodiacTiles[1],"slancio");assert.deepEqual(result,{attack:98,defense:40,winner:"attacker"});
 });
 
 test("Indovina Chi lascia l’eliminazione interamente al giocatore",()=>{
  const source=readFileSync(new URL("../src/App.jsx",import.meta.url),"utf8");
- assert.match(source,/Le risposte non modificano il tabellone/);assert.match(source,/POSSIBILE/);assert.match(source,/ESCLUSO/);assert.match(source,/toggle\(s\.name\)/);assert.doesNotMatch(source,/setRemaining/);
+ assert.match(source,/Le risposte non modificano il tabellone/);assert.match(source,/Mostra altre domande/);assert.match(source,/POSSIBILE/);assert.match(source,/ESCLUSO/);assert.match(source,/toggle\(s\.name\)/);assert.doesNotMatch(source,/setRemaining/);
+});
+
+test("le prove difficili hanno formulazioni complete e prive del testo ambiguo segnalato",()=>{
+ for(const mode of ["logic","opposite","planet","mixed"])for(const question of buildQuestionSet(mode,80)){assert.ok(question.prompt.length>40);assert.doesNotMatch(question.prompt,/non (?:c’è|c'e|c'è) punto di partenza|punto di partenza/i)}
+});
+
+test("Indovina Chi vocale è una modalità online distinta senza banca domande nell’interfaccia",()=>{
+ assert.ok(onlineModes.includes("guesswho-online"));const source=readFileSync(new URL("../src/advancedGames.jsx",import.meta.url),"utf8");assert.match(source,/L’app non propone domande/);assert.match(source,/guesswho-pass/);assert.match(source,/guesswho-accuse/);
+});
+
+test("tornare alla home conserva credenziali e stanza online",()=>{
+ const source=readFileSync(new URL("../src/App.jsx",import.meta.url),"utf8");assert.match(source,/function returnHome\(\)\{setScreen\("home"\)\}/);assert.doesNotMatch(source,/removeItem\("zodiac-session"\)/);assert.match(source,/Rientra nella stanza conservata/);
 });
 
 test("la build espone una versione nuova e riconoscibile",()=>{
- assert.equal(APP_VERSION,"6.1.0");
+ assert.equal(APP_VERSION,"6.2.0");
  const source=readFileSync(new URL("../src/App.jsx",import.meta.url),"utf8");
  assert.match(source,/VERSIONE \{APP_VERSION\}/);assert.match(source,/<small>v\{APP_VERSION\}<\/small>/);
 });

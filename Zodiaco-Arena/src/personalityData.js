@@ -1,3 +1,5 @@
+import {extraPortraitScenes} from "./personalityExpansion.js";
+
 const portraits={
  Ariete:[
   ["Durante un progetto nuovo apre subito un documento, assegna i primi compiti e prova una soluzione ancora prima che gli altri abbiano finito di discutere.","Se il gruppo esita davanti a un’attività sconosciuta, si offre per iniziare e preferisce correggere la rotta in corsa.","Trasforma facilmente una commissione o un allenamento in una piccola gara con sé stesso e punta a battere il risultato precedente."],
@@ -78,8 +80,11 @@ export const portraitStageNames=["Vita quotidiana","Legami","Sotto pressione","F
 export function buildPortrait(name,rng=Math.random){
  const stages=portraits[name];
  if(!stages)throw new Error(`Profilo sconosciuto: ${name}`);
- return stages.map((variants,index)=>({stage:portraitStageNames[index],text:variants[Math.floor(rng()*variants.length)]}));
+ const base=stages.flatMap((variants,index)=>variants.map(text=>({stage:portraitStageNames[index],text}))),extra=(extraPortraitScenes[name]||[]).map(([stage,text])=>({stage,text})),pool=[...base,...extra],byStage=new Map();
+ for(const scene of pool){if(!byStage.has(scene.stage))byStage.set(scene.stage,[]);byStage.get(scene.stage).push(scene)}
+ const stageNames=[...byStage.keys()];for(let i=stageNames.length-1;i>0;i--){const j=Math.floor(rng()*(i+1));[stageNames[i],stageNames[j]]=[stageNames[j],stageNames[i]]}
+ return stageNames.slice(0,4).map(stage=>{const choices=byStage.get(stage);return choices[Math.floor(rng()*choices.length)]});
 }
 
-export function portraitVariantCount(){return Object.values(portraits).reduce((sum,stages)=>sum+stages.reduce((n,v)=>n+v.length,0),0)}
-
+export function portraitVariantCount(){const base=Object.values(portraits).reduce((sum,stages)=>sum+stages.reduce((n,v)=>n+v.length,0),0),extra=Object.values(extraPortraitScenes).reduce((sum,scenes)=>sum+scenes.length,0);return base+extra}
+export function portraitCountForSign(name){return portraits[name].reduce((sum,variants)=>sum+variants.length,0)+(extraPortraitScenes[name]?.length||0)}

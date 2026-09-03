@@ -19,29 +19,29 @@ export function phaseNumber(round){return Math.floor(round/4)+1}
 export function speedPoints(elapsed,max=320,min=120,duration=20000){return Math.max(min,Math.round(max-(max-min)*Math.min(1,elapsed/duration)))}
 
 export const tileCategories=[
- {id:"slancio",label:"Slancio",description:"Iniziativa, coraggio e rapidità nel partire"},
- {id:"tenacia",label:"Tenacia",description:"Resistenza, costanza e capacità di non mollare"},
- {id:"intuito",label:"Intuito",description:"Lettura di persone, atmosfere e segnali nascosti"},
- {id:"influenza",label:"Influenza",description:"Capacità di convincere, unire o guidare gli altri"},
- {id:"adattabilita",label:"Adattabilità",description:"Flessibilità davanti a cambiamenti e imprevisti"}
+ {id:"slancio",label:"Slancio",description:"Fuoco, iniziativa, coraggio e rapidità nel cominciare"},
+ {id:"tenacia",label:"Tenacia",description:"Qualità fissa o terrestre, disciplina e resistenza nel tempo"},
+ {id:"intuito",label:"Intuito",description:"Ricettività emotiva, lettura dei segnali e profondità percettiva"},
+ {id:"influenza",label:"Influenza",description:"Presenza, comunicazione, leadership e capacità di coinvolgere"},
+ {id:"adattabilita",label:"Adattabilità",description:"Qualità mutevole, elasticità mentale e risposta agli imprevisti"}
 ];
 
 const rawTiles=[
- ["Ariete","♈",94,61,48,63,52],
- ["Toro","♉",45,96,62,58,39],
- ["Gemelli","♊",72,44,65,78,95],
- ["Cancro","♋",48,73,93,69,51],
- ["Leone","♌",89,74,55,96,46],
- ["Vergine","♍",52,88,76,47,84],
- ["Bilancia","♎",54,59,72,94,79],
- ["Scorpione","♏",66,92,97,61,43],
- ["Sagittario","♐",96,53,58,75,91],
- ["Capricorno","♑",57,98,64,71,60],
- ["Acquario","♒",68,65,79,82,98],
- ["Pesci","♓",42,56,99,73,90]
+ ["Ariete","♈","Cardinale di Fuoco: parte prima degli altri e trascina con coraggio, ma rende meno nella lunga attesa.",98,62,48,79,55],
+ ["Toro","♉","Fisso di Terra: costruisce lentamente, protegge ciò che funziona e oppone una resistenza eccezionale al cambiamento.",40,98,70,61,27],
+ ["Gemelli","♊","Mutevole d’Aria: collega idee e persone con grande rapidità, cambiando linguaggio e strategia mentre osserva.",80,42,67,87,97],
+ ["Cancro","♋","Cardinale d’Acqua: percepisce il clima emotivo, protegge il gruppo e agisce quando sente minacciata la sicurezza.",47,78,95,71,53],
+ ["Leone","♌","Fisso di Fuoco: sostiene la propria visione con calore, orgoglio e una presenza capace di catalizzare il gruppo.",92,82,58,98,45],
+ ["Vergine","♍","Mutevole di Terra: analizza, corregge e rende pratico ciò che cambia, con costanza più metodica che ostinata.",51,90,82,49,85],
+ ["Bilancia","♎","Cardinale d’Aria: muove relazioni e accordi, legge gli equilibri e influenza senza imporre frontalmente.",57,56,77,94,84],
+ ["Scorpione","♏","Fisso d’Acqua: legge ciò che resta nascosto, resiste nelle crisi e concentra l’energia su obiettivi profondi.",68,96,98,73,39],
+ ["Sagittario","♐","Mutevole di Fuoco: apre strade, rischia e rilancia verso nuovi orizzonti, soffrendo però la continuità minuziosa.",97,50,63,83,93],
+ ["Capricorno","♑","Cardinale di Terra: trasforma ambizione e responsabilità in una strategia sostenuta per lunghissimo tempo.",60,99,69,81,59],
+ ["Acquario","♒","Fisso d’Aria: mantiene saldi i propri principi ma reinventa sistemi, prospettive e regole collettive.",72,72,84,85,99],
+ ["Pesci","♓","Mutevole d’Acqua: assorbe atmosfere e sfumature, immagina alternative e si adatta oltre i confini consueti.",38,52,99,68,95]
 ];
 
-export const zodiacTiles=rawTiles.map(([name,symbol,...numbers])=>({name,symbol,values:Object.fromEntries(tileCategories.map((category,index)=>[category.id,numbers[index]]))}));
+export const zodiacTiles=rawTiles.map(([name,symbol,signature,...numbers])=>({name,symbol,signature,values:Object.fromEntries(tileCategories.map((category,index)=>[category.id,numbers[index]]))}));
 
 export function shuffledTiles(rng=Math.random){const out=zodiacTiles.map(tile=>({...tile,values:{...tile.values}}));for(let i=out.length-1;i>0;i--){const j=Math.floor(rng()*(i+1));[out[i],out[j]]=[out[j],out[i]]}return out}
 export function tileByName(name){return zodiacTiles.find(tile=>tile.name===name)}

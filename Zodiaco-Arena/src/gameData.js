@@ -20,7 +20,7 @@ export const modeInfo={
  guesswho:{title:"Indovina Chi: interrogatorio",description:"Fai domande e gestisci tu ogni tessera ancora possibile"},
  clues:{title:"Rivelazione",description:"Indizi relazionali: sbagliare sblocca il successivo"},
  constellation:{title:"Osservatorio J2000",description:"Campi stellari reali, luminosità e ottica variabile"},
- portrait:{title:"Profilo Vivente",description:"Scene di vita e comportamento: riconosci il carattere nascosto"},
+ portrait:{title:"Profilo Vivente",description:"264 scene concrete: riconosci il carattere da ciò che la persona fa"},
  cipher:{title:"Codice Astrale",description:"Mastermind zodiacale: 11.880 codici possibili"},
  tilecpu:{title:"Duello delle Tessere",description:"Conquista tutti i segni sfidando un avversario strategico"},
  dossier:{title:"Dossier astrale",description:"Ricostruisci un profilo tecnico a sei variabili"},
@@ -32,10 +32,11 @@ export const modeInfo={
  opposite:{title:"Assi e relazioni",description:"Deduzioni a 180° con più proprietà incrociate"},
  planet:{title:"Governatori",description:"Identifica segno o governatore da dossier incompleti"},
  championship:{title:"Campionato Astrale",description:"16 prove in quattro fasi con rischio, velocità e furti"},
- tiles:{title:"Duello delle Tessere",description:"Scegli la categoria, inganna il rivale e conquista il mazzo"}
+ tiles:{title:"Duello delle Tessere",description:"Scegli la categoria, inganna il rivale e conquista il mazzo"},
+ "guesswho-online":{title:"Indovina Chi · Vocale",description:"Domande a voce, deduzione manuale e accuse sincronizzate"}
 };
 export const soloModes=["guesswho","portrait","clues","constellation","cipher","tilecpu","dossier","expert","logic","mixed","blitz"];
-export const onlineModes=["championship","tiles","mixed","logic","constellation","calendar","opposite","planet"];
+export const onlineModes=["championship","guesswho-online","tiles","mixed","logic","constellation","calendar","opposite","planet"];
 
 export function shuffle(items,rng=Math.random){const out=[...items];for(let i=out.length-1;i>0;i--){const j=Math.floor(rng()*(i+1));[out[i],out[j]]=[out[j],out[i]]}return out}
 export const pick=(items,rng=Math.random)=>items[Math.floor(rng()*items.length)];
@@ -53,6 +54,12 @@ export function progressiveClues(sign,rng=Math.random){
 
 export function detectiveQuestions(){
  const elements=["Fuoco","Terra","Aria","Acqua"],qualities=["Cardinale","Fisso","Mutevole"],polarities=["Positiva","Negativa"],planets=[...new Set(signs.map(s=>s.planet))];
+ const sectors=[
+  {id:"ar-ge",text:"Si trova nel settore da Ariete a Gemelli?",test:s=>s.index<3},
+  {id:"ca-ve",text:"Si trova nel settore da Cancro a Vergine?",test:s=>s.index>=3&&s.index<6},
+  {id:"bi-sa",text:"Si trova nel settore da Bilancia a Sagittario?",test:s=>s.index>=6&&s.index<9},
+  {id:"cp-pe",text:"Si trova nel settore da Capricorno a Pesci?",test:s=>s.index>=9}
+ ];
  return[
   ...elements.map(value=>({id:`el-${value}`,text:`È un segno di ${value}?`,test:s=>s.element===value})),
   ...qualities.map(value=>({id:`qu-${value}`,text:`Ha modalità ${value.toLowerCase()}?`,test:s=>s.quality===value})),
@@ -61,6 +68,12 @@ export function detectiveQuestions(){
   ...elements.map(value=>({id:`oe-${value}`,text:`Il suo opposto è di ${value}?`,test:s=>opposite(s).element===value})),
   ...qualities.map(value=>({id:`pq-${value}`,text:`Il segno precedente è ${value.toLowerCase()}?`,test:s=>previous(s).quality===value})),
   ...elements.map(value=>({id:`ne-${value}`,text:`Il segno seguente è di ${value}?`,test:s=>next(s).element===value})),
+  ...elements.map(value=>({id:`pe-${value}`,text:`Il segno immediatamente precedente è di ${value}?`,test:s=>previous(s).element===value})),
+  ...qualities.map(value=>({id:`nq-${value}`,text:`Il segno immediatamente seguente è ${value.toLowerCase()}?`,test:s=>next(s).quality===value})),
+  ...planets.map(value=>({id:`op-${value}`,text:`Il segno opposto è governato da ${value}?`,test:s=>opposite(s).planet===value})),
+  ...planets.map(value=>({id:`pp-${value}`,text:`Il segno precedente è governato da ${value}?`,test:s=>previous(s).planet===value})),
+  ...planets.map(value=>({id:`np-${value}`,text:`Il segno seguente è governato da ${value}?`,test:s=>next(s).planet===value})),
+  ...sectors,
   {id:"half-a",text:"Si trova nella prima metà della ruota?",test:s=>s.index<6}
  ];
 }
@@ -101,7 +114,7 @@ function proceduralDossier(target,rng,excluded=[]){
  const chosen=shuffle(pick(candidates,rng),rng),text=chosen.map(feature=>pick(feature.variants,rng)).join("; ");return{text,keys:chosen.map(feature=>feature.key)};
 }
 function logicQuestion(target,rng){
- const dossier=proceduralDossier(target,rng),opening=pick(["Archivio senza nomi né date","Interseca tutte le condizioni","Nessun indizio è sufficiente da solo","Dossier a vincoli multipli","Scarta i falsi candidati uno alla volta"],rng);
+ const dossier=proceduralDossier(target,rng),opening=pick(["Archivio senza nomi né date","Usa insieme tutti i dati del fascicolo","Collega le proprietà indicate","Dossier a vincoli multipli","Scarta i falsi candidati uno alla volta"],rng);
  return{prompt:`${opening}: ${dossier.text}. Quale unica identità soddisfa l’intero fascicolo?`,answer:target.name,options:shuffle(signs,rng).map(sign=>sign.name),explanation:`${target.symbol} ${target.name} verifica tutti i vincoli: ${target.element}, ${target.quality}, ${target.polarity}; governatore ${target.planet}.`};
 }
 
@@ -111,7 +124,7 @@ export function makeQuestion(requestedMode="mixed",rng=Math.random){
  else if(mode==="calendar"){
   const sample=pick(target.samples,rng);prompt=pick([`Data di confine: una persona nata il ${sample}, secondo le date convenzionali usate nel gioco, di che segno è?`,`Archivio anagrafico: assegna il ${sample} al corretto intervallo zodiacale.`,`Il calendario segnala ${sample}. Quale periodo zodiacale lo contiene?`],rng);explanation=`L’intervallo convenzionale di ${target.name} è ${target.dates}.`;options=shuffle(signs,rng).map(s=>s.name);
  }else if(mode==="opposite"){
-  const dossier=proceduralDossier(target,rng);prompt=pick([`Problema in due passaggi. Identifica prima il segno descritto da: ${dossier.text}. Poi percorri sei posizioni: quale segno trovi?`,`Non viene dato il punto di partenza. Ricavalo da questo dossier — ${dossier.text} — e seleziona il suo opposto a 180°.`],rng);answer=target.opposite;explanation=`Il dossier identifica ${target.name}; il suo punto opposto è ${target.opposite}.`;options=shuffle(signs,rng).map(s=>s.name);
+  const dossier=proceduralDossier(target,rng);prompt=pick([`Problema in due passaggi. Il dossier descrive un segno: ${dossier.text}. Identificalo, poi scegli il segno che si trova esattamente di fronte nella ruota zodiacale.`,`Risolvi prima questo dossier: ${dossier.text}. La risposta richiesta è il segno opposto, distante sei posizioni da quello identificato.`],rng);answer=target.opposite;explanation=`Il dossier identifica ${target.name}; il suo punto opposto è ${target.opposite}.`;options=shuffle(signs,rng).map(s=>s.name);
  }else if(mode==="planet"){
   const reverse=rng()>.45,dossier=proceduralDossier(target,rng,reverse?[]:["planet"]);if(reverse){prompt=`Dossier planetario incrociato: ${dossier.text}. Quale segno soddisfa contemporaneamente tutti i vincoli?`;answer=target.name;options=shuffle(signs,rng).map(s=>s.name)}else{prompt=`Il nome del segno è censurato. Ricavalo da: ${dossier.text}. Solo dopo scegli il suo governatore.`;answer=target.planet;options=shuffle([...new Set(signs.map(s=>s.planet))],rng)}explanation=`Il dossier conduce a ${target.name}, governato da ${target.planet}.`;
  }else if(mode==="constellation"){
